@@ -18,6 +18,10 @@ args = "Start application"
 task = "workflow.run"
 args = "Worker"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Setup DB"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -37,6 +41,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm tsx worker/index.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Setup DB"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm db:setup"
 
 [workflows.workflow.metadata]
 outputType = "console"
