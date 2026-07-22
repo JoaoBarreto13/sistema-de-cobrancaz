@@ -40,3 +40,7 @@ args = "pnpm tsx worker/index.ts"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
