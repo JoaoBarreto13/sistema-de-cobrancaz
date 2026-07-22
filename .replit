@@ -22,13 +22,13 @@ args = "Worker"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "BETTER_AUTH_URL=https://$REPLIT_DEV_DOMAIN pnpm dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "BETTER_AUTH_SECRET=$SESSION_SECRET BETTER_AUTH_URL=https://$REPLIT_DEV_DOMAIN pnpm dev"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Worker"
