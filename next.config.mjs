@@ -6,6 +6,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Required for Replit proxy
+  allowedDevOrigins: ['*'],
 }
 
 export default nextConfig
