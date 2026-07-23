@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { createGroup, updateGroup, toggleGroup } from '@/app/actions/billing'
+import { createGroup, updateGroup, toggleGroup, deleteGroup } from '@/app/actions/billing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Pencil, Power } from 'lucide-react'
+import { Plus, Pencil, Power, Trash2 } from 'lucide-react'
 
 type Group = {
   id: number; name: string; amountCents: number; dueDay: number
@@ -74,9 +74,41 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: () => void }) {
   )
 }
 
+function DeleteGroupDialog({ group, onDone }: { group: Group; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleDelete() {
+    startTransition(async () => {
+      try {
+        await deleteGroup(group.id)
+        toast.success('Grupo excluído.')
+        onDone()
+      } catch (e: unknown) {
+        toast.error((e as Error).message ?? 'Erro ao excluir grupo')
+      }
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Tem certeza que deseja excluir o grupo <strong>{group.name}</strong>?
+        Todos os clientes serão desvinculados. Jobs já enviados não serão afetados.
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onDone} disabled={pending}>Cancelar</Button>
+        <Button variant="destructive" onClick={handleDelete} disabled={pending}>
+          {pending ? 'Excluindo…' : 'Excluir grupo'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function GroupsPanel({ groups }: { groups: Group[] }) {
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Group | null>(null)
+  const [deleting, setDeleting] = useState<Group | null>(null)
   const [pending, startTransition] = useTransition()
 
   function handleToggle(id: number) {
@@ -111,6 +143,14 @@ export function GroupsPanel({ groups }: { groups: Group[] }) {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Editar grupo</DialogTitle></DialogHeader>
           {editing && <GroupForm group={editing} onDone={() => setEditing(null)} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete dialog */}
+      <Dialog open={!!deleting} onOpenChange={v => { if (!v) setDeleting(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Excluir grupo</DialogTitle></DialogHeader>
+          {deleting && <DeleteGroupDialog group={deleting} onDone={() => setDeleting(null)} />}
         </DialogContent>
       </Dialog>
 
@@ -153,6 +193,11 @@ export function GroupsPanel({ groups }: { groups: Group[] }) {
                         className="gap-1 text-xs">
                         <Power className="size-3.5" />
                         {g.active ? 'Pausar' : 'Ativar'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleting(g)}
+                        className="gap-1 text-xs text-destructive hover:text-destructive">
+                        <Trash2 className="size-3.5" />
+                        <span className="hidden sm:inline">Excluir</span>
                       </Button>
                     </div>
                   </TableCell>

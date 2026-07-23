@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { createCustomer, toggleCustomer, sendOneOff } from '@/app/actions/billing'
+import { createCustomer, toggleCustomer, sendOneOff, unlinkCustomerFromGroup } from '@/app/actions/billing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -11,7 +11,7 @@ import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Power, Send } from 'lucide-react'
+import { Plus, Power, Send, Unlink } from 'lucide-react'
 
 type Customer = {
   id: number; name: string; phone: string; active: boolean
@@ -113,9 +113,42 @@ function SendOneOffDialog({ customer, onDone }: { customer: Customer; onDone: ()
   )
 }
 
+function UnlinkDialog({ customer, onDone }: { customer: Customer; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleUnlink() {
+    if (!customer.groupId) return
+    startTransition(async () => {
+      try {
+        await unlinkCustomerFromGroup(customer.id, customer.groupId!)
+        toast.success(`${customer.name} desvinculado do grupo.`)
+        onDone()
+      } catch (e: unknown) {
+        toast.error((e as Error).message ?? 'Erro ao desvincular')
+      }
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Desvincular <strong>{customer.name}</strong> do grupo <strong>{customer.groupName}</strong>?
+        O cliente continuará cadastrado mas não receberá mais cobranças desse grupo.
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onDone} disabled={pending}>Cancelar</Button>
+        <Button variant="destructive" onClick={handleUnlink} disabled={pending}>
+          {pending ? 'Desvinculando…' : 'Desvincular'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function CustomersPanel({ customers, groups }: { customers: Customer[]; groups: Group[] }) {
   const [createOpen, setCreateOpen] = useState(false)
   const [oneOffTarget, setOneOffTarget] = useState<Customer | null>(null)
+  const [unlinkTarget, setUnlinkTarget] = useState<Customer | null>(null)
   const [pending, startTransition] = useTransition()
 
   function handleToggle(id: number) {
@@ -150,6 +183,14 @@ export function CustomersPanel({ customers, groups }: { customers: Customer[]; g
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Envio avulso</DialogTitle></DialogHeader>
           {oneOffTarget && <SendOneOffDialog customer={oneOffTarget} onDone={() => setOneOffTarget(null)} />}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unlink dialog */}
+      <Dialog open={!!unlinkTarget} onOpenChange={v => { if (!v) setUnlinkTarget(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Desvincular do grupo</DialogTitle></DialogHeader>
+          {unlinkTarget && <UnlinkDialog customer={unlinkTarget} onDone={() => setUnlinkTarget(null)} />}
         </DialogContent>
       </Dialog>
 
@@ -197,6 +238,14 @@ export function CustomersPanel({ customers, groups }: { customers: Customer[]; g
                         <Power className="size-3.5" />
                         {c.active ? 'Pausar' : 'Ativar'}
                       </Button>
+                      {c.groupId && (
+                        <Button variant="ghost" size="sm"
+                          onClick={() => setUnlinkTarget(c)}
+                          className="gap-1 text-xs text-destructive hover:text-destructive">
+                          <Unlink className="size-3.5" />
+                          <span className="hidden sm:inline">Desvincular</span>
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -1,7 +1,14 @@
+'use client'
+
+import { useTransition } from 'react'
+import { toast } from 'sonner'
+import { cancelJob } from '@/app/actions/billing'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { XCircle } from 'lucide-react'
 
 type Job = {
   id: number; type: string; status: string; message: string
@@ -10,16 +17,40 @@ type Job = {
 type Counts = { pending: number; sent: number; failed: number }
 
 const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  pending:    { label: 'Pendente',    variant: 'secondary' },
-  processing: { label: 'Enviando',    variant: 'outline' },
-  sent:       { label: 'Enviado',     variant: 'default' },
-  failed:     { label: 'Falhou',      variant: 'destructive' },
+  pending:    { label: 'Pendente',   variant: 'secondary' },
+  processing: { label: 'Enviando',   variant: 'outline' },
+  sent:       { label: 'Enviado',    variant: 'default' },
+  failed:     { label: 'Falhou',     variant: 'destructive' },
+  cancelled:  { label: 'Cancelado',  variant: 'outline' },
 }
 const typeMap: Record<string, string> = { monthly: 'Mensal', one_off: 'Avulso' }
 
 function fmt(d: Date | null) {
   if (!d) return '–'
   return format(new Date(d), "dd/MM HH:mm", { locale: ptBR })
+}
+
+function CancelButton({ jobId }: { jobId: number }) {
+  const [pending, startTransition] = useTransition()
+
+  function handleCancel() {
+    startTransition(async () => {
+      try {
+        await cancelJob(jobId)
+        toast.success('Job cancelado.')
+      } catch (e: unknown) {
+        toast.error((e as Error).message ?? 'Erro ao cancelar')
+      }
+    })
+  }
+
+  return (
+    <Button variant="ghost" size="sm" disabled={pending} onClick={handleCancel}
+      className="gap-1 text-xs text-destructive hover:text-destructive">
+      <XCircle className="size-3.5" />
+      <span className="hidden sm:inline">Cancelar</span>
+    </Button>
+  )
 }
 
 export function JobsPanel({ jobs, counts }: { jobs: Job[]; counts: Counts }) {
@@ -53,13 +84,15 @@ export function JobsPanel({ jobs, counts }: { jobs: Job[]; counts: Counts }) {
                 <TableHead>Agendado para</TableHead>
                 <TableHead>Enviado em</TableHead>
                 <TableHead>Mensagem</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {jobs.map(j => {
                 const s = statusMap[j.status] ?? { label: j.status, variant: 'outline' as const }
+                const cancellable = j.status === 'pending' || j.status === 'failed'
                 return (
-                  <TableRow key={j.id}>
+                  <TableRow key={j.id} className={j.status === 'cancelled' ? 'opacity-50' : ''}>
                     <TableCell className="font-medium">{j.customerName ?? '–'}</TableCell>
                     <TableCell><Badge variant="outline">{typeMap[j.type] ?? j.type}</Badge></TableCell>
                     <TableCell>
@@ -71,6 +104,9 @@ export function JobsPanel({ jobs, counts }: { jobs: Job[]; counts: Counts }) {
                     <TableCell className="text-sm text-muted-foreground">{fmt(j.scheduledFor)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{fmt(j.sentAt)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-60 truncate" title={j.message}>{j.message}</TableCell>
+                    <TableCell className="text-right">
+                      {cancellable && <CancelButton jobId={j.id} />}
+                    </TableCell>
                   </TableRow>
                 )
               })}

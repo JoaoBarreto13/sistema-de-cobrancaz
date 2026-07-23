@@ -87,6 +87,40 @@ export async function sendOneOff(formData: FormData) {
   revalidatePath('/')
 }
 
+export async function deleteGroup(id: number) {
+  const userId = await getUserId()
+  const [group] = await db.select({ id: billingGroups.id }).from(billingGroups)
+    .where(and(eq(billingGroups.id, id), eq(billingGroups.userId, userId))).limit(1)
+  if (!group) throw new Error('Grupo não encontrado')
+  const pending = await db.select({ id: messageJobs.id }).from(messageJobs)
+    .where(and(eq(messageJobs.groupId, id), eq(messageJobs.userId, userId),
+      sql`${messageJobs.status} IN ('pending','processing')`)).limit(1)
+  if (pending.length > 0) throw new Error('Grupo tem cobranças pendentes. Cancele-as antes de excluir.')
+  await db.delete(customerGroups).where(and(eq(customerGroups.groupId, id), eq(customerGroups.userId, userId)))
+  await db.delete(billingGroups).where(and(eq(billingGroups.id, id), eq(billingGroups.userId, userId)))
+  revalidatePath('/')
+}
+
+export async function unlinkCustomerFromGroup(customerId: number, groupId: number) {
+  const userId = await getUserId()
+  const deleted = await db.delete(customerGroups)
+    .where(and(eq(customerGroups.customerId, customerId), eq(customerGroups.groupId, groupId), eq(customerGroups.userId, userId)))
+    .returning({ id: customerGroups.id })
+  if (deleted.length === 0) throw new Error('Vínculo não encontrado')
+  revalidatePath('/')
+}
+
+export async function cancelJob(id: number) {
+  const userId = await getUserId()
+  const updated = await db.update(messageJobs)
+    .set({ status: 'cancelled', updatedAt: new Date() })
+    .where(and(eq(messageJobs.id, id), eq(messageJobs.userId, userId),
+      sql`${messageJobs.status} IN ('pending','failed')`))
+    .returning({ id: messageJobs.id })
+  if (updated.length === 0) throw new Error('Job não pode ser cancelado (já enviado ou em processamento)')
+  revalidatePath('/')
+}
+
 export async function getWhatsAppStatus() {
   const userId = await getUserId()
   const [state] = await db.select().from(whatsappSessionState).where(eq(whatsappSessionState.userId, userId)).limit(1)
