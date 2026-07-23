@@ -40,6 +40,7 @@ Edite o `.env` com seus valores:
 |----------|-----------|
 | `DATABASE_URL` | Connection string do PostgreSQL (use o pooler do Supabase, porta 6543) |
 | `SESSION_SECRET` | String longa e aleatória para assinar sessões |
+| `BETTER_AUTH_SECRET` | Segredo explícito do Better Auth; pode reutilizar o mesmo valor de `SESSION_SECRET` |
 | `BETTER_AUTH_URL` | URL onde o app roda — localmente `http://localhost:5000` |
 | `BAILEYS_AUTH_DIR` | Pasta para salvar a sessão do WhatsApp (padrão: `.baileys-auth`) |
 
@@ -58,8 +59,10 @@ Em terminais separados:
 pnpm dev
 
 # Terminal 2 — worker WhatsApp
-pnpm worker
+node --import tsx/esm worker/index.ts
 ```
+
+Se preferir, o comando `pnpm worker` executa o mesmo worker via Node.
 
 ### 5. Crie sua conta e pareie o WhatsApp
 
@@ -68,10 +71,6 @@ pnpm worker
 3. Após parear, volte ao dashboard e comece a cadastrar grupos e clientes
 
 ---
-
-## Rodando no Replit
-
-Os secrets `DATABASE_URL` e `SESSION_SECRET` são configurados pelo painel de Secrets do Replit. Inicie os workflows **Start application** e **Worker** pelo painel.
 
 ---
 
