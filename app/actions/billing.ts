@@ -48,7 +48,8 @@ export async function toggleGroup(id: number) {
   const [group] = await db.select({ active: billingGroups.active }).from(billingGroups)
     .where(and(eq(billingGroups.id, id), eq(billingGroups.userId, userId))).limit(1)
   if (!group) throw new Error('Grupo não encontrado')
-  await db.update(billingGroups).set({ active: !group.active, updatedAt: new Date() }).where(eq(billingGroups.id, id))
+  await db.update(billingGroups).set({ active: !group.active, updatedAt: new Date() })
+    .where(and(eq(billingGroups.id, id), eq(billingGroups.userId, userId)))
   revalidatePath('/')
 }
 
@@ -68,7 +69,8 @@ export async function toggleCustomer(id: number) {
   const [customer] = await db.select({ active: customers.active }).from(customers)
     .where(and(eq(customers.id, id), eq(customers.userId, userId))).limit(1)
   if (!customer) throw new Error('Cliente não encontrado')
-  await db.update(customers).set({ active: !customer.active, updatedAt: new Date() }).where(eq(customers.id, id))
+  await db.update(customers).set({ active: !customer.active, updatedAt: new Date() })
+    .where(and(eq(customers.id, id), eq(customers.userId, userId)))
   revalidatePath('/')
 }
 
