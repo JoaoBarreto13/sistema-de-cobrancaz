@@ -1,7 +1,8 @@
 /**
  * Creates all database tables if they don't exist.
- * Run with: pnpm tsx scripts/setup-db.ts
+ * Run with: pnpm db:setup
  */
+import 'dotenv/config'
 import { Pool } from 'pg'
 
 const pool = new Pool({

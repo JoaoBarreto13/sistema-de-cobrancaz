@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import makeWASocket, { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys'
 import qrcode from 'qrcode-terminal'
 import { and, eq, lte, or, sql } from 'drizzle-orm'
