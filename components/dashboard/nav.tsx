@@ -41,7 +41,7 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">C</div>
-          <span className="hidden sm:block">Cobrar</span>
+          <span className="hidden sm:block">CeifaBot</span>
         </Link>
 
         {/* Nav links */}
@@ -59,9 +59,18 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
         <div className="flex-1" />
 
         {/* WA Status */}
-        <Link href="/whatsapp" className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <span className={`size-2 rounded-full ${statusColor}`} />
-          {statusLabel}
+        <Link
+          href="/whatsapp"
+          className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium bg-muted/30 hover:bg-muted transition-colors"
+          title="Clique para gerenciar a conexão do WhatsApp"
+        >
+          <span className="relative flex size-2 shrink-0">
+            {whatsapp?.status === 'connected' && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            )}
+            <span className={`relative inline-flex rounded-full size-2 ${statusColor}`} />
+          </span>
+          <span className="truncate max-w-32 sm:max-w-none">{statusLabel}</span>
         </Link>
 
         {/* User + sign out */}

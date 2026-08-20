@@ -24,6 +24,7 @@ export const verification = pgTable('verification', {
 export const billingGroups = pgTable('billing_groups', {
   id: serial('id').primaryKey(), userId: text('userId').notNull(), name: varchar('name', { length: 120 }).notNull(), description: text('description'),
   amountCents: integer('amountCents').notNull(), dueDay: integer('dueDay').notNull(), sendTime: varchar('sendTime', { length: 5 }).notNull(),
+  sendDate: varchar('sendDate', { length: 10 }),
   messageTemplate: text('messageTemplate').notNull(), active: boolean('active').notNull().default(true),
   createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })

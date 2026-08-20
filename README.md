@@ -1,4 +1,4 @@
-# Cobrar — Bot de Cobrança via WhatsApp
+# CeifaBot — Bot de Cobrança via WhatsApp
 
 Sistema de cobrança automática por WhatsApp. Cadastre grupos de cobrança, clientes e deixe o bot disparar as mensagens mensalmente no horário configurado.
 
@@ -36,13 +36,13 @@ cp .env.example .env
 
 Edite o `.env` com seus valores:
 
-| Variável | Descrição |
-|----------|-----------|
-| `DATABASE_URL` | Connection string do PostgreSQL (use o pooler do Supabase, porta 6543) |
-| `SESSION_SECRET` | String longa e aleatória para assinar sessões |
+| Variável             | Descrição                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | Connection string do PostgreSQL (use o pooler do Supabase, porta 6543)              |
+| `SESSION_SECRET`     | String longa e aleatória para assinar sessões                                       |
 | `BETTER_AUTH_SECRET` | Segredo explícito do Better Auth; pode reutilizar o mesmo valor de `SESSION_SECRET` |
-| `BETTER_AUTH_URL` | URL onde o app roda — localmente `http://localhost:5000` |
-| `BAILEYS_AUTH_DIR` | Pasta para salvar a sessão do WhatsApp (padrão: `.baileys-auth`) |
+| `BETTER_AUTH_URL`    | URL onde o app roda — localmente `http://localhost:5000`                            |
+| `BAILEYS_AUTH_DIR`   | Pasta para salvar a sessão do WhatsApp (padrão: `.baileys-auth`)                    |
 
 ### 3. Crie as tabelas
 

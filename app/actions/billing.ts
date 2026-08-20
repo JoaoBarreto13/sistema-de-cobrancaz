@@ -7,38 +7,52 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { existsSync, rmSync } from 'fs'
 
 async function getUserId() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error('Não autorizado')
   return session.user.id
 }
-const phoneSchema = z.string().transform(v => v.replace(/\D/g, '')).pipe(z.string().min(10).max(15))
+const phoneSchema = z.string().transform(v => {
+  const digits = v.replace(/\D/g, '')
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+    return `55${digits}`
+  }
+  return digits
+}).pipe(z.string().min(10).max(15))
 const groupSchema = z.object({
   name: z.string().min(2).max(120),
   amount: z.coerce.number().positive(),
   dueDay: z.coerce.number().int().min(1).max(31),
   sendTime: z.string().regex(/^\d{2}:\d{2}$/),
+  sendDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   message: z.string().min(5).max(2000),
 })
 
 export async function createGroup(formData: FormData) {
   const userId = await getUserId()
+  const rawSendDate = formData.get('sendDate')
   const data = groupSchema.parse({
     name: formData.get('name'), amount: formData.get('amount'),
-    dueDay: formData.get('dueDay'), sendTime: formData.get('sendTime'), message: formData.get('message'),
+    dueDay: formData.get('dueDay'), sendTime: formData.get('sendTime'),
+    sendDate: rawSendDate && String(rawSendDate).trim() ? String(rawSendDate) : null,
+    message: formData.get('message'),
   })
-  await db.insert(billingGroups).values({ userId, name: data.name, amountCents: Math.round(data.amount * 100), dueDay: data.dueDay, sendTime: data.sendTime, messageTemplate: data.message })
+  await db.insert(billingGroups).values({ userId, name: data.name, amountCents: Math.round(data.amount * 100), dueDay: data.dueDay, sendTime: data.sendTime, sendDate: data.sendDate ?? null, messageTemplate: data.message })
   revalidatePath('/')
 }
 
 export async function updateGroup(id: number, formData: FormData) {
   const userId = await getUserId()
+  const rawSendDate = formData.get('sendDate')
   const data = groupSchema.parse({
     name: formData.get('name'), amount: formData.get('amount'),
-    dueDay: formData.get('dueDay'), sendTime: formData.get('sendTime'), message: formData.get('message'),
+    dueDay: formData.get('dueDay'), sendTime: formData.get('sendTime'),
+    sendDate: rawSendDate && String(rawSendDate).trim() ? String(rawSendDate) : null,
+    message: formData.get('message'),
   })
-  await db.update(billingGroups).set({ name: data.name, amountCents: Math.round(data.amount * 100), dueDay: data.dueDay, sendTime: data.sendTime, messageTemplate: data.message, updatedAt: new Date() })
+  await db.update(billingGroups).set({ name: data.name, amountCents: Math.round(data.amount * 100), dueDay: data.dueDay, sendTime: data.sendTime, sendDate: data.sendDate ?? null, messageTemplate: data.message, updatedAt: new Date() })
     .where(and(eq(billingGroups.id, id), eq(billingGroups.userId, userId)))
   revalidatePath('/')
 }
@@ -53,14 +67,93 @@ export async function toggleGroup(id: number) {
   revalidatePath('/')
 }
 
+export async function sendGroupNow(groupId: number) {
+  const userId = await getUserId()
+  const [group] = await db.select().from(billingGroups)
+    .where(and(eq(billingGroups.id, groupId), eq(billingGroups.userId, userId), eq(billingGroups.active, true))).limit(1)
+  if (!group) throw new Error('Grupo não encontrado ou inativo')
+
+  const members = await db.select({ id: customers.id, name: customers.name, phone: customers.phone })
+    .from(customerGroups)
+    .innerJoin(customers, and(eq(customers.id, customerGroups.customerId), eq(customers.userId, userId)))
+    .where(and(eq(customerGroups.userId, userId), eq(customerGroups.groupId, groupId), eq(customers.active, true)))
+
+  if (members.length === 0) throw new Error('Este grupo não possui clientes ativos vinculados')
+
+  function render(template: string, customer: string, amountCents: number, dueDay: number) {
+    return template
+      .replaceAll('{{nome}}', customer)
+      .replaceAll('{{valor}}', (amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }))
+      .replaceAll('{{vencimento}}', String(dueDay))
+  }
+
+  for (const customer of members) {
+    const message = render(group.messageTemplate, customer.name, group.amountCents, group.dueDay)
+    await db.insert(messageJobs).values({
+      userId,
+      customerId: customer.id,
+      groupId: group.id,
+      type: 'group_manual',
+      message,
+      amountCents: group.amountCents,
+      scheduledFor: new Date(),
+      idempotencyKey: `group_manual:${group.id}:${customer.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    })
+  }
+
+  revalidatePath('/')
+}
+
 export async function createCustomer(formData: FormData) {
   const userId = await getUserId()
+  const rawGroupId = formData.get('groupId')
   const data = z.object({
-    name: z.string().min(2).max(120), phone: phoneSchema,
-    groupId: z.coerce.number().int().positive(),
-  }).parse({ name: formData.get('name'), phone: formData.get('phone'), groupId: formData.get('groupId') })
+    name: z.string().min(2).max(120),
+    phone: phoneSchema,
+    groupId: z.coerce.number().int().positive().nullable().optional(),
+  }).parse({
+    name: formData.get('name'),
+    phone: formData.get('phone'),
+    groupId: rawGroupId && String(rawGroupId).trim() && String(rawGroupId) !== 'none' ? Number(rawGroupId) : null,
+  })
   const [customer] = await db.insert(customers).values({ userId, name: data.name, phone: data.phone }).returning({ id: customers.id })
-  await db.insert(customerGroups).values({ userId, customerId: customer.id, groupId: data.groupId })
+  if (data.groupId) {
+    await db.insert(customerGroups).values({ userId, customerId: customer.id, groupId: data.groupId })
+  }
+  revalidatePath('/')
+}
+
+export async function updateCustomer(id: number, formData: FormData) {
+  const userId = await getUserId()
+  const rawGroupId = formData.get('groupId')
+  const data = z.object({
+    name: z.string().min(2).max(120),
+    phone: phoneSchema,
+    groupId: z.coerce.number().int().positive().nullable().optional(),
+  }).parse({
+    name: formData.get('name'),
+    phone: formData.get('phone'),
+    groupId: rawGroupId && String(rawGroupId).trim() && String(rawGroupId) !== 'none' ? Number(rawGroupId) : null,
+  })
+
+  await db.update(customers).set({ name: data.name, phone: data.phone, updatedAt: new Date() })
+    .where(and(eq(customers.id, id), eq(customers.userId, userId)))
+
+  await db.delete(customerGroups).where(and(eq(customerGroups.customerId, id), eq(customerGroups.userId, userId)))
+  if (data.groupId) {
+    await db.insert(customerGroups).values({ userId, customerId: id, groupId: data.groupId })
+  }
+  revalidatePath('/')
+}
+
+export async function deleteCustomer(id: number) {
+  const userId = await getUserId()
+  await db.delete(messageJobs)
+    .where(and(eq(messageJobs.customerId, id), eq(messageJobs.userId, userId), sql`${messageJobs.status} IN ('pending','processing')`))
+  await db.delete(customerGroups)
+    .where(and(eq(customerGroups.customerId, id), eq(customerGroups.userId, userId)))
+  await db.delete(customers)
+    .where(and(eq(customers.id, id), eq(customers.userId, userId)))
   revalidatePath('/')
 }
 
@@ -121,9 +214,75 @@ export async function cancelJob(id: number) {
   revalidatePath('/')
 }
 
+export async function retryJob(id: number) {
+  const userId = await getUserId()
+  const updated = await db.update(messageJobs)
+    .set({
+      status: 'pending',
+      attempts: 0,
+      error: null,
+      scheduledFor: new Date(),
+      lockedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(messageJobs.id, id), eq(messageJobs.userId, userId)))
+    .returning({ id: messageJobs.id })
+
+  if (updated.length === 0) throw new Error('Mensagem não encontrada')
+  revalidatePath('/')
+}
+
+export async function disconnectWhatsApp() {
+  const userId = await getUserId()
+  const sessionDir = process.env.BAILEYS_AUTH_DIR || '.baileys-auth'
+
+  try {
+    if (existsSync(sessionDir)) {
+      rmSync(sessionDir, { recursive: true, force: true })
+    }
+  } catch (err) {
+    console.error('Erro ao remover diretório da sessão:', err)
+  }
+
+  await db.update(whatsappSessionState).set({
+    status: 'disconnected',
+    qrCode: null,
+    phone: null,
+    lastError: 'Desconectado manualmente',
+    updatedAt: new Date(),
+  }).where(eq(whatsappSessionState.userId, userId))
+
+  revalidatePath('/whatsapp')
+  revalidatePath('/')
+}
+
 export async function getWhatsAppStatus() {
   const userId = await getUserId()
-  const [state] = await db.select().from(whatsappSessionState).where(eq(whatsappSessionState.userId, userId)).limit(1)
+  let [state] = await db.select().from(whatsappSessionState).where(eq(whatsappSessionState.userId, userId)).limit(1)
+
+  if (!state) {
+    const [latestGlobal] = await db.select().from(whatsappSessionState).orderBy(desc(whatsappSessionState.updatedAt)).limit(1)
+    if (latestGlobal) {
+      const [inserted] = await db.insert(whatsappSessionState).values({
+        userId,
+        status: latestGlobal.status,
+        qrCode: latestGlobal.qrCode,
+        lastError: latestGlobal.lastError,
+        phone: latestGlobal.phone,
+      }).onConflictDoUpdate({
+        target: whatsappSessionState.userId,
+        set: {
+          status: latestGlobal.status,
+          qrCode: latestGlobal.qrCode,
+          lastError: latestGlobal.lastError,
+          phone: latestGlobal.phone,
+          updatedAt: new Date(),
+        },
+      }).returning()
+      return inserted ?? latestGlobal
+    }
+  }
+
   return state ?? null
 }
 

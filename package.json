@@ -16,7 +16,7 @@
     "@base-ui/react": "^1.5.0",
     "@types/qrcode": "^1.5.6",
     "@vercel/analytics": "1.6.1",
-    "@whiskeysockets/baileys": "7.0.0-rc13",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "better-auth": "^1.6.24",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS "billing_groups" (
   "amountCents" integer NOT NULL,
   "dueDay" integer NOT NULL,
   "sendTime" varchar(5) NOT NULL,
+  "sendDate" varchar(10),
   "messageTemplate" text NOT NULL,
   "active" boolean NOT NULL DEFAULT true,
   "createdAt" timestamp NOT NULL DEFAULT now(),
@@ -121,6 +122,9 @@ CREATE TABLE IF NOT EXISTS "whatsapp_session_state" (
   "lastError" text,
   "updatedAt" timestamp NOT NULL DEFAULT now()
 );
+
+-- Migrations for existing tables
+ALTER TABLE "billing_groups" ADD COLUMN IF NOT EXISTS "sendDate" varchar(10);
 `
 
 async function main() {

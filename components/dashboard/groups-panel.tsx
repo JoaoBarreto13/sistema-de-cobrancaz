@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { createGroup, updateGroup, toggleGroup, deleteGroup } from '@/app/actions/billing'
+import { createGroup, updateGroup, toggleGroup, deleteGroup, sendGroupNow } from '@/app/actions/billing'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,11 +10,11 @@ import { Badge } from '@/components/ui/badge'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Pencil, Power, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Power, Send, Trash2 } from 'lucide-react'
 
 type Group = {
   id: number; name: string; amountCents: number; dueDay: number
-  sendTime: string; messageTemplate: string; active: boolean
+  sendTime: string; sendDate: string | null; messageTemplate: string; active: boolean
 }
 
 function GroupForm({ group, onDone }: { group?: Group; onDone: () => void }) {
@@ -52,10 +52,19 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: () => void }) {
               defaultValue={group?.dueDay} placeholder="10" />
           </Field>
         </div>
-        <Field>
-          <FieldLabel>Horário de envio</FieldLabel>
-          <Input name="sendTime" type="time" required defaultValue={group?.sendTime ?? '09:00'} />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field>
+            <FieldLabel>Data de envio</FieldLabel>
+            <Input name="sendDate" type="date" defaultValue={group?.sendDate ?? ''} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Opcional. Se vazio, envia todo mês no dia de vencimento.
+            </p>
+          </Field>
+          <Field>
+            <FieldLabel>Horário de envio</FieldLabel>
+            <Input name="sendTime" type="time" required defaultValue={group?.sendTime ?? '09:00'} />
+          </Field>
+        </div>
         <Field>
           <FieldLabel>Mensagem template</FieldLabel>
           <Textarea name="message" rows={4} required defaultValue={group?.messageTemplate}
@@ -118,6 +127,17 @@ export function GroupsPanel({ groups }: { groups: Group[] }) {
     })
   }
 
+  function handleSendGroupNow(id: number, name: string) {
+    startTransition(async () => {
+      try {
+        await sendGroupNow(id)
+        toast.success(`Cobranças do grupo "${name}" enviadas para a fila de disparo!`)
+      } catch (e: unknown) {
+        toast.error((e as Error).message ?? 'Erro ao disparar cobranças do grupo')
+      }
+    })
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -167,7 +187,7 @@ export function GroupsPanel({ groups }: { groups: Group[] }) {
                 <TableHead>Nome</TableHead>
                 <TableHead>Valor</TableHead>
                 <TableHead>Vencimento</TableHead>
-                <TableHead>Horário</TableHead>
+                <TableHead>Envio</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -180,22 +200,31 @@ export function GroupsPanel({ groups }: { groups: Group[] }) {
                     {(g.amountCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
                   <TableCell>Dia {g.dueDay}</TableCell>
-                  <TableCell>{g.sendTime}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">{g.sendTime}</div>
+                    {g.sendDate && <div className="text-xs text-muted-foreground">{new Date(g.sendDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div>}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={g.active ? 'default' : 'secondary'}>{g.active ? 'Ativo' : 'Inativo'}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(g)}>
+                      <Button variant="ghost" size="sm" disabled={!g.active || pending}
+                        onClick={() => handleSendGroupNow(g.id, g.name)}
+                        className="gap-1 text-xs text-primary hover:text-primary" title="Enviar cobrança agora para todos os clientes deste grupo">
+                        <Send className="size-3.5" />
+                        <span className="hidden sm:inline">Disparar</span>
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(g)} title="Editar grupo">
                         <Pencil className="size-3.5" />
                       </Button>
                       <Button variant="ghost" size="sm" disabled={pending} onClick={() => handleToggle(g.id)}
-                        className="gap-1 text-xs">
+                        className="gap-1 text-xs" title={g.active ? 'Pausar grupo' : 'Ativar grupo'}>
                         <Power className="size-3.5" />
                         {g.active ? 'Pausar' : 'Ativar'}
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setDeleting(g)}
-                        className="gap-1 text-xs text-destructive hover:text-destructive">
+                        className="gap-1 text-xs text-destructive hover:text-destructive" title="Excluir grupo">
                         <Trash2 className="size-3.5" />
                         <span className="hidden sm:inline">Excluir</span>
                       </Button>

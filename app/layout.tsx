@@ -4,8 +4,8 @@ import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Cobrar',
-  description: 'Cobranças no piloto automático',
+  title: 'CeifaBot',
+  description: 'Cobranças no piloto automático da Ceifadora',
   icons: {
     icon: [
       { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: light)' },
