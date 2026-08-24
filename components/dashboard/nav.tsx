@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
@@ -40,7 +41,7 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">C</div>
+          <Image src="/logo.png" alt="CeifaBot Logo" width={32} height={32} className="size-8 rounded-lg object-contain" priority />
           <span className="hidden sm:block">CeifaBot</span>
         </Link>
 
