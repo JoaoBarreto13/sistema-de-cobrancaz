@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   title: 'CeifaBot',
   description: 'Cobranças no piloto automático da Ceifadora',
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png',
   },
 }
 
