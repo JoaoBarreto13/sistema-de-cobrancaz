@@ -1,103 +1,141 @@
-# CeifaBot — Bot de Cobrança via WhatsApp
+# ⚡ CeifaBot — Sistema de Cobrança Automática via WhatsApp
 
-Sistema de cobrança automática por WhatsApp. Cadastre grupos de cobrança, clientes e deixe o bot disparar as mensagens mensalmente no horário configurado.
-
-## Stack
-
-- **Next.js 16** (App Router) — dashboard web
-- **PostgreSQL + Drizzle ORM** — banco de dados
-- **Better Auth** — autenticação email/senha
-- **Baileys** — integração WhatsApp (sem API oficial)
-- **shadcn/ui + Tailwind CSS 4** — interface
+Sistema completo e moderno para automação e gestão de cobranças mensais via WhatsApp. Cadastre grupos com datas de vencimento e horários pré-definidos, vincule clientes com seus respectivos valores e deixe o worker disparar as mensagens automaticamente.
 
 ---
 
-## Rodando localmente
+## ✨ Funcionalidades
+
+- 📱 **Conexão WhatsApp no Painel**: Escaneie o QR Code diretamente pela interface web (via Baileys).
+- 👥 **Gestão de Grupos de Cobrança**: Defina horário de disparo, dia de vencimento e templates de mensagem personalizados.
+- 👤 **Cadastro de Clientes**: Nome, número de telefone e valor da cobrança individual.
+- 📝 **Templates Dinâmicos**: Mensagens automáticas com interpolação de variáveis (`{{nome}}`, `{{valor}}`, `{{vencimento}}`).
+- ⏱️ **Disparo Agendado (Worker)**: Agendamento automático mensal e fila de envio para evitar bloqueios.
+- 🔒 **Autenticação Segura**: Controle de acesso com email e senha via Better Auth.
+- 📊 **Fila e Histórico de Envios**: Acompanhe em tempo real o status dos envios no dashboard.
+
+---
+
+## 🛠️ Tecnologias
+
+- **Frontend / Framework**: [Next.js 16](https://nextjs.org/) (App Router, React 19)
+- **Estilização**: [Tailwind CSS 4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- **Banco de Dados**: PostgreSQL com [Drizzle ORM](https://orm.drizzle.team/)
+- **Autenticação**: [Better Auth](https://www.better-auth.com/)
+- **Integração WhatsApp**: [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) (sem necessidade da API oficial)
+- **Agendamento & Workers**: Node.js com TypeScript via `tsx`
+
+---
+
+## 🚀 Como Rodar o Projeto
 
 ### Pré-requisitos
 
-- Node.js 20+ e pnpm (`npm i -g pnpm`)
-- PostgreSQL acessível publicamente (ex: [Supabase](https://supabase.com) — plano gratuito funciona)
-  - Use o **connection pooler** do Supabase (porta 6543) — o host direto usa só IPv6 e pode não funcionar em algumas redes
+- **Node.js 20+** instalado
+- **pnpm** instalado (`npm install -g pnpm`)
+- Instância do **PostgreSQL** acessível:
+  - Recomendado: [Supabase](https://supabase.com) (plano gratuito).
+  - *Dica*: Utilize a string de conexão do **Connection Pooler** (porta `6543`) para compatibilidade com redes IPv4.
 
-### 1. Clone e instale
+---
+
+### 1. Clonar o repositório
 
 ```bash
 git clone https://github.com/JoaoBarreto13/sistema-de-cobrancaz.git
 cd sistema-de-cobrancaz
+```
+
+### 2. Instalar as dependências
+
+```bash
 pnpm install
 ```
 
-### 2. Configure as variáveis de ambiente
+### 3. Configurar variáveis de ambiente
+
+Copie o arquivo de exemplo:
 
 ```bash
 cp .env.example .env
 ```
 
-Edite o `.env` com seus valores:
+Abra o arquivo `.env` e preencha as configurações:
 
-| Variável             | Descrição                                                                           |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `DATABASE_URL`       | Connection string do PostgreSQL (use o pooler do Supabase, porta 6543)              |
-| `SESSION_SECRET`     | String longa e aleatória para assinar sessões                                       |
-| `BETTER_AUTH_SECRET` | Segredo explícito do Better Auth; pode reutilizar o mesmo valor de `SESSION_SECRET` |
-| `BETTER_AUTH_URL`    | URL onde o app roda — localmente `http://localhost:5000`                            |
-| `BAILEYS_AUTH_DIR`   | Pasta para salvar a sessão do WhatsApp (padrão: `.baileys-auth`)                    |
+| Variável | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | String de conexão do PostgreSQL (Pooler Supabase) | `postgresql://postgres:senha@pooler.supabase.com:6543/postgres` |
+| `SESSION_SECRET` | Chave secreta para assinar sessões | `uma_chave_longa_e_aleatoria` |
+| `BETTER_AUTH_SECRET` | Segredo para o Better Auth (pode ser igual a `SESSION_SECRET`) | `uma_chave_longa_e_aleatoria` |
+| `BETTER_AUTH_URL` | URL base da aplicação web | `http://localhost:5000` |
+| `BAILEYS_AUTH_DIR` | Diretório para persistir os tokens do WhatsApp | `.baileys-auth` |
 
-### 3. Crie as tabelas
+### 4. Preparar o banco de dados
+
+Execute o script de inicialização para criar as tabelas:
 
 ```bash
 pnpm db:setup
 ```
 
-### 4. Inicie os dois processos
+### 5. Iniciar os processos
 
-Em terminais separados:
+Para o funcionamento completo, execute **ambos** os processos em terminais separados:
 
 ```bash
-# Terminal 1 — dashboard web (porta 5000)
+# Terminal 1: Servidor Web (Dashboard)
 pnpm dev
 
-# Terminal 2 — worker WhatsApp
-node --import tsx/esm worker/index.ts
+# Terminal 2: Worker de envio do WhatsApp
+pnpm worker
 ```
 
-Se preferir, o comando `pnpm worker` executa o mesmo worker via Node.
-
-### 5. Crie sua conta e pareie o WhatsApp
-
-1. Acesse `http://localhost:5000` e crie uma conta
-2. Vá em **WhatsApp** no menu e escaneie o QR code com seu celular
-3. Após parear, volte ao dashboard e comece a cadastrar grupos e clientes
+O dashboard estará disponível em: [`http://localhost:5000`](http://localhost:5000).
 
 ---
 
+## 📱 Pareamento com o WhatsApp
+
+1. Abra o navegador em `http://localhost:5000` e crie sua conta de administrador.
+2. Acesse a aba **WhatsApp** no menu de navegação.
+3. Abra o WhatsApp no seu smartphone, vá em **Aparelhos Conectados > Conectar um aparelho** e escaneie o QR Code exibido na tela.
+4. Assim que a conexão for confirmada, acesse a aba **Grupos** e configure suas cobranças.
+
 ---
 
-## Estrutura do projeto
+## 📝 Templates de Mensagem
 
-```
-app/
-  actions/billing.ts   — server actions (grupos, clientes, jobs)
-  page.tsx             — dashboard principal
-  sign-in/             — página de login
-  whatsapp/            — página de pareamento WhatsApp
-components/dashboard/  — painéis de grupos, clientes e fila de mensagens
-lib/
-  auth.ts              — configuração Better Auth
-  db/
-    index.ts           — conexão PostgreSQL (Drizzle)
-    schema.ts          — schema das tabelas
-worker/
-  index.ts             — worker Baileys: QR, scheduler mensal, fila de envio
-scripts/
-  setup-db.ts          — cria as tabelas se não existirem
+Você pode personalizar o texto enviado para cada grupo utilizando as tags dinâmicas:
+
+| Variável | Descrição | Exemplo Gerado |
+| :--- | :--- | :--- |
+| `{{nome}}` | Nome cadastrado do cliente | `João Silva` |
+| `{{valor}}` | Valor da cobrança formatado em BRL | `R$ 150,00` |
+| `{{vencimento}}` | Dia do vencimento do grupo | `10` |
+
+*Exemplo de Template:*
+```text
+Olá, {{nome}}! Tudo bem?
+Passando para lembrar que sua mensalidade no valor de {{valor}} vence no dia {{vencimento}}.
+Segue chave Pix para pagamento: sua-chave-pix-aqui
 ```
 
-## Variáveis de template nas mensagens
+---
 
-Use estas variáveis ao criar o template de mensagem de um grupo:
+## 📜 Scripts Disponíveis
 
-- `{{nome}}` — nome do cliente
-- `{{valor}}` — valor da cobrança formatado (ex: R$ 150,00)
-- `{{vencimento}}` — dia de vencimento configurado no grupo
+| Comando | Descrição |
+| :--- | :--- |
+| `pnpm dev` | Inicia o Next.js em modo de desenvolvimento na porta 5000 |
+| `pnpm worker` | Inicia o worker do Baileys e scheduler de mensagens |
+| `pnpm build` | Gera o build de produção do Next.js |
+| `pnpm start` | Inicia o app em modo de produção |
+| `pnpm db:setup` | Cria as tabelas do banco de dados |
+| `pnpm db:push` | Sincroniza o schema do Drizzle com o banco |
+| `pnpm db:studio` | Abre o Drizzle Studio para visualizar dados no navegador |
+
+---
+
+## ⚠️ Aviso Legal
+
+Este projeto utiliza o Baileys para comunicação com o WhatsApp via Web. O uso deve respeitar os [Termos de Serviço do WhatsApp](https://www.whatsapp.com/legal/). Não utilize para spam ou envios em massa não solicitados.
