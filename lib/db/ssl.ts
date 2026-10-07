@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { PoolConfig } from 'pg'
 
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -30,6 +31,20 @@ function parseDatabaseUrl(raw: string): { hostname: string; sanitizedConnectionS
   }
 }
 
+function resolveCa(): string | undefined {
+  if (process.env.DATABASE_SSL_CA) {
+    return process.env.DATABASE_SSL_CA.replace(/\\n/g, '\n')
+  }
+  if (process.env.DATABASE_SSL_CA_PATH && existsSync(process.env.DATABASE_SSL_CA_PATH)) {
+    return readFileSync(process.env.DATABASE_SSL_CA_PATH, 'utf8')
+  }
+  const defaultCertPath = join(process.cwd(), 'certs', 'supabase-ca.crt')
+  if (existsSync(defaultCertPath)) {
+    return readFileSync(defaultCertPath, 'utf8')
+  }
+  return undefined
+}
+
 export function getPoolConfig(): PoolConfig {
   const raw = process.env.DATABASE_URL
   if (!raw) throw new Error('DATABASE_URL não definida')
@@ -37,8 +52,7 @@ export function getPoolConfig(): PoolConfig {
   const { hostname, sanitizedConnectionString } = parseDatabaseUrl(raw)
   if (LOCAL.has(hostname)) return { connectionString: sanitizedConnectionString, ssl: false }
 
-  const ca = process.env.DATABASE_SSL_CA?.replace(/\\n/g, '\n')
-    ?? (process.env.DATABASE_SSL_CA_PATH ? readFileSync(process.env.DATABASE_SSL_CA_PATH, 'utf8') : undefined)
+  const ca = resolveCa()
 
   return { connectionString: sanitizedConnectionString, ssl: { ca, rejectUnauthorized: true } }
 }
