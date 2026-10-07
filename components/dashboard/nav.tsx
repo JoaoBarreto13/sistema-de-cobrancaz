@@ -5,14 +5,20 @@ import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { LogOut, MessageCircle } from 'lucide-react'
+import { LogOut, MessageCircle, Users } from 'lucide-react'
 
 type WAStatus = { status: string; phone: string | null } | null
 
-export function DashboardNav({ user, whatsapp }: { user: { name: string; email: string }; whatsapp: WAStatus }) {
+export function DashboardNav({
+  user,
+  whatsapp,
+}: {
+  user: { name: string; email: string; role?: string; username?: string }
+  whatsapp: WAStatus
+}) {
   const router = useRouter()
   const pathname = usePathname()
+  const isAdmin = user.role === 'admin'
 
   async function handleSignOut() {
     await authClient.signOut()
@@ -36,6 +42,9 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
     disconnected: 'Offline',
   }[whatsapp?.status ?? 'disconnected'] ?? 'Offline'
 
+  // Exibir username se disponível, caso contrário usar name (nunca mostrar o e-mail fictício)
+  const displayName = (user as { username?: string }).username ?? user.name
+
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
@@ -54,6 +63,12 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
             <MessageCircle className="size-3.5" />
             WhatsApp
           </Link>
+          {isAdmin && (
+            <Link href="/admin/usuarios" className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${pathname === '/admin/usuarios' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}>
+              <Users className="size-3.5" />
+              Usuários
+            </Link>
+          )}
         </nav>
 
         {/* Spacer */}
@@ -76,7 +91,7 @@ export function DashboardNav({ user, whatsapp }: { user: { name: string; email: 
 
         {/* User + sign out */}
         <div className="flex items-center gap-2">
-          <span className="hidden md:block text-sm text-muted-foreground truncate max-w-40">{user.email}</span>
+          <span className="hidden md:block text-sm text-muted-foreground truncate max-w-40">{displayName}</span>
           <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-1.5">
             <LogOut className="size-3.5" />
             <span className="hidden sm:block">Sair</span>

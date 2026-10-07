@@ -2,11 +2,12 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getDashboardData } from '@/app/actions/billing'
+import { getDashboardData, getConversations } from '@/app/actions/billing'
 import { DashboardNav } from '@/components/dashboard/nav'
 import { GroupsPanel } from '@/components/dashboard/groups-panel'
 import { CustomersPanel } from '@/components/dashboard/customers-panel'
 import { JobsPanel } from '@/components/dashboard/jobs-panel'
+import { ConversasPanel } from '@/components/dashboard/conversas-panel'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, Layers, CheckCircle2, Clock } from 'lucide-react'
 
@@ -17,7 +18,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams
   const tab = sp.tab ?? 'grupos'
 
-  const data = await getDashboardData()
+  const isAdmin = (session.user as { role?: string }).role === 'admin'
+  const [data, conversasData] = await Promise.all([
+    getDashboardData(),
+    tab === 'conversas' ? getConversations() : Promise.resolve(null),
+  ])
   const { groups, customers, jobs, whatsapp, counts } = data
 
   const activeCustomers = customers.filter(c => c.active).length
@@ -27,11 +32,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     { key: 'grupos', label: 'Grupos' },
     { key: 'clientes', label: 'Clientes' },
     { key: 'mensagens', label: 'Mensagens' },
+    { key: 'conversas', label: 'Conversas' },
   ]
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav user={session.user} whatsapp={whatsapp} />
+      <DashboardNav user={session.user as Parameters<typeof DashboardNav>[0]['user']} whatsapp={whatsapp} />
 
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
         {/* Stats */}
@@ -103,6 +109,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {tab === 'grupos' && <GroupsPanel groups={groups} />}
           {tab === 'clientes' && <CustomersPanel customers={customers} groups={groups} />}
           {tab === 'mensagens' && <JobsPanel jobs={jobs} counts={counts} />}
+          {tab === 'conversas' && conversasData && (
+            <ConversasPanel initialData={conversasData} isAdmin={isAdmin} />
+          )}
         </div>
       </main>
     </div>

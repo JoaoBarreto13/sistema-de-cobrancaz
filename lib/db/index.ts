@@ -1,9 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from './schema'
+import { getPoolConfig } from './ssl'
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
-})
+export const pool = new Pool(getPoolConfig())
 export const db = drizzle(pool, { schema })

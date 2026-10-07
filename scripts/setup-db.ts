@@ -4,11 +4,9 @@
  */
 import 'dotenv/config'
 import { Pool } from 'pg'
+import { getPoolConfig } from '../lib/db/ssl'
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
-})
+const pool = new Pool(getPoolConfig())
 
 const sql = `
 CREATE TABLE IF NOT EXISTS "user" (
@@ -125,6 +123,54 @@ CREATE TABLE IF NOT EXISTS "whatsapp_session_state" (
 
 -- Migrations for existing tables
 ALTER TABLE "billing_groups" ADD COLUMN IF NOT EXISTS "sendDate" varchar(10);
+
+-- Tarefa 1: colunas para plugins username e admin do Better Auth
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "username" text;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "displayUsername" text;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "role" text;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "banned" boolean DEFAULT false;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "banReason" text;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "banExpires" timestamp;
+ALTER TABLE "session" ADD COLUMN IF NOT EXISTS "impersonatedBy" text;
+CREATE UNIQUE INDEX IF NOT EXISTS "user_username_key" ON "user" ("username");
+
+-- Tarefa 2: coluna command para desconexão via banco
+ALTER TABLE "whatsapp_session_state" ADD COLUMN IF NOT EXISTS "command" varchar(20);
+
+-- Tarefa 3: tabelas de mensagens recebidas e anexos
+CREATE TABLE IF NOT EXISTS "inbound_messages" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "waMessageId" varchar(80) NOT NULL,
+  "remoteJid" varchar(80) NOT NULL,
+  "phone" varchar(20),
+  "phoneKey" varchar(20),
+  "pushName" varchar(120),
+  "kind" varchar(20) NOT NULL,
+  "body" text,
+  "mediaStatus" varchar(20) NOT NULL DEFAULT 'none',
+  "receivedAt" timestamp NOT NULL,
+  "readAt" timestamp,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  UNIQUE ("remoteJid", "waMessageId")
+);
+CREATE INDEX IF NOT EXISTS "inbound_phonekey_idx" ON "inbound_messages" ("phoneKey", "receivedAt");
+
+CREATE TABLE IF NOT EXISTS "message_attachments" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "inboundMessageId" integer NOT NULL REFERENCES "inbound_messages"("id") ON DELETE CASCADE,
+  "mimetype" varchar(100) NOT NULL,
+  "fileName" varchar(255),
+  "sizeBytes" integer NOT NULL,
+  "data" bytea NOT NULL,
+  "createdAt" timestamp NOT NULL DEFAULT now()
+);
+
+ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "phoneKey" varchar(20);
+CREATE INDEX IF NOT EXISTS "customers_phonekey_idx" ON "customers" ("userId", "phoneKey");
+UPDATE "customers" SET "phoneKey" = CASE
+  WHEN phone LIKE '55%' AND length(phone) IN (12, 13) THEN left(phone, 4) || right(phone, 8)
+  ELSE phone END
+WHERE "phoneKey" IS NULL;
 `
 
 async function main() {

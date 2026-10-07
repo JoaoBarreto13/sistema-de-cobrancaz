@@ -11,11 +11,12 @@ export default async function WhatsAppPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect('/sign-in')
 
-  const [whatsapp] = await Promise.all([getWhatsAppStatus()])
+  const whatsapp = await getWhatsAppStatus()
+  const isAdmin = (session.user as { role?: string }).role === 'admin'
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav user={session.user} whatsapp={whatsapp} />
+      <DashboardNav user={session.user as Parameters<typeof DashboardNav>[0]['user']} whatsapp={whatsapp} />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
@@ -24,10 +25,12 @@ export default async function WhatsAppPage() {
             Voltar ao painel
           </Link>
           <h1 className="text-2xl font-bold">WhatsApp</h1>
-          <p className="text-muted-foreground mt-1">Gerencie a conexão do bot com o seu WhatsApp.</p>
+          <p className="text-muted-foreground mt-1">
+            {isAdmin ? 'Gerencie a conexão do bot com o WhatsApp.' : 'Status da conexão com o WhatsApp.'}
+          </p>
         </div>
 
-        <WhatsAppClient initialState={whatsapp} />
+        <WhatsAppClient initialState={whatsapp} isAdmin={isAdmin} />
       </main>
     </div>
   )

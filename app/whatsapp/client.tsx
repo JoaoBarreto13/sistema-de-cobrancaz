@@ -48,7 +48,7 @@ const STATUS_INFO: Record<string, { label: string; color: string; icon: React.Re
   },
 }
 
-export function WhatsAppClient({ initialState }: { initialState: WAState }) {
+export function WhatsAppClient({ initialState, isAdmin = false }: { initialState: WAState; isAdmin?: boolean }) {
   const [state, setState] = useState(initialState)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [lastPoll, setLastPoll] = useState(new Date())
@@ -148,7 +148,7 @@ export function WhatsAppClient({ initialState }: { initialState: WAState }) {
               Atualizado em {lastPoll.toLocaleTimeString('pt-BR')}
             </p>
 
-            {state?.status === 'connected' && (
+            {isAdmin && state?.status === 'connected' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -164,8 +164,8 @@ export function WhatsAppClient({ initialState }: { initialState: WAState }) {
         </CardContent>
       </Card>
 
-      {/* QR code card */}
-      {state && state.status !== 'connected' && state.status !== 'logged_out' && (
+      {/* QR code card — apenas admin */}
+      {isAdmin && state && state.status !== 'connected' && state.status !== 'logged_out' && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Escaneie o QR Code</CardTitle>

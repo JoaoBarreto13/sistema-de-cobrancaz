@@ -1,14 +1,23 @@
-import { boolean, integer, pgTable, serial, text, timestamp, unique, varchar } from 'drizzle-orm/pg-core'
+import { boolean, customType, index, integer, pgTable, serial, text, timestamp, unique, varchar } from 'drizzle-orm/pg-core'
+
+// Tipo bytea para armazenar dados binários (anexos)
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' })
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false), image: text('image'),
   createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  // Plugin username
+  username: text('username').unique(), displayUsername: text('displayUsername'),
+  // Plugin admin
+  role: text('role'), banned: boolean('banned').default(false),
+  banReason: text('banReason'), banExpires: timestamp('banExpires'),
 })
 export const session = pgTable('session', {
   id: text('id').primaryKey(), expiresAt: timestamp('expiresAt').notNull(), token: text('token').notNull().unique(),
   createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   ipAddress: text('ipAddress'), userAgent: text('userAgent'), userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  impersonatedBy: text('impersonatedBy'),
 })
 export const account = pgTable('account', {
   id: text('id').primaryKey(), accountId: text('accountId').notNull(), providerId: text('providerId').notNull(),
@@ -30,8 +39,9 @@ export const billingGroups = pgTable('billing_groups', {
 })
 export const customers = pgTable('customers', {
   id: serial('id').primaryKey(), userId: text('userId').notNull(), name: varchar('name', { length: 120 }).notNull(), phone: varchar('phone', { length: 20 }).notNull(),
+  phoneKey: varchar('phoneKey', { length: 20 }),
   notes: text('notes'), active: boolean('active').notNull().default(true), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
-}, (t) => [unique().on(t.userId, t.phone)])
+}, (t) => [unique().on(t.userId, t.phone), index().on(t.userId, t.phoneKey)])
 export const customerGroups = pgTable('customer_groups', {
   id: serial('id').primaryKey(), userId: text('userId').notNull(), customerId: integer('customerId').notNull(), groupId: integer('groupId').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow(),
 }, (t) => [unique().on(t.userId, t.customerId, t.groupId)])
@@ -43,5 +53,34 @@ export const messageJobs = pgTable('message_jobs', {
 }, (t) => [unique().on(t.userId, t.idempotencyKey)])
 export const whatsappSessionState = pgTable('whatsapp_session_state', {
   id: serial('id').primaryKey(), userId: text('userId').notNull().unique(), status: varchar('status', { length: 30 }).notNull().default('disconnected'),
-  qrCode: text('qrCode'), phone: varchar('phone', { length: 30 }), lastError: text('lastError'), updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  qrCode: text('qrCode'), phone: varchar('phone', { length: 30 }), lastError: text('lastError'),
+  command: varchar('command', { length: 20 }),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+// Tarefa 3 — mensagens recebidas e anexos
+export const inboundMessages = pgTable('inbound_messages', {
+  id: serial('id').primaryKey(),
+  waMessageId: varchar('waMessageId', { length: 80 }).notNull(),
+  remoteJid: varchar('remoteJid', { length: 80 }).notNull(),
+  phone: varchar('phone', { length: 20 }),
+  phoneKey: varchar('phoneKey', { length: 20 }),
+  pushName: varchar('pushName', { length: 120 }),
+  kind: varchar('kind', { length: 20 }).notNull(),
+  body: text('body'),
+  mediaStatus: varchar('mediaStatus', { length: 20 }).notNull().default('none'),
+  receivedAt: timestamp('receivedAt').notNull(),
+  readAt: timestamp('readAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+}, (t) => [unique().on(t.remoteJid, t.waMessageId), index().on(t.phoneKey, t.receivedAt)])
+
+export const messageAttachments = pgTable('message_attachments', {
+  id: serial('id').primaryKey(),
+  inboundMessageId: integer('inboundMessageId').notNull()
+    .references(() => inboundMessages.id, { onDelete: 'cascade' }),
+  mimetype: varchar('mimetype', { length: 100 }).notNull(),
+  fileName: varchar('fileName', { length: 255 }),
+  sizeBytes: integer('sizeBytes').notNull(),
+  data: bytea('data').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
