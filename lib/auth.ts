@@ -2,28 +2,16 @@ import { betterAuth } from 'better-auth'
 import { admin, username } from 'better-auth/plugins'
 import { pool } from '@/lib/db'
 
-const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : undefined
+const isProd = process.env.NODE_ENV === 'production'
 
-let primaryUrl = process.env.BETTER_AUTH_URL
-if (vercelUrl && (!primaryUrl || primaryUrl.includes('localhost'))) {
-  primaryUrl = vercelUrl
-}
-if (!primaryUrl) {
-  primaryUrl = vercelUrl ?? 'http://localhost:5000'
-}
-
-const urls = Array.from(new Set([
-  primaryUrl,
-  vercelUrl,
-  process.env.BETTER_AUTH_URL,
-  process.env.V0_RUNTIME_URL,
-].filter(Boolean) as string[]))
-
-const useSecureCookies = primaryUrl.startsWith('https://')
+const detectedBaseUrl =
+  process.env.BETTER_AUTH_URL && !process.env.BETTER_AUTH_URL.includes('localhost')
+    ? process.env.BETTER_AUTH_URL
+    : process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.BETTER_AUTH_URL ?? 'http://localhost:5000'
 
 export const auth = betterAuth({
   database: pool,
@@ -33,7 +21,22 @@ export const auth = betterAuth({
     admin({ defaultRole: 'user', adminRoles: ['admin'] }),
   ],
   secret: process.env.BETTER_AUTH_SECRET ?? process.env.SESSION_SECRET,
-  baseURL: primaryUrl,
-  trustedOrigins: urls,
-  advanced: useSecureCookies ? { defaultCookieAttributes: { sameSite: 'none', secure: true } } : undefined,
+  baseURL: detectedBaseUrl,
+  trustedOrigins: [
+    'https://*.vercel.app',
+    'https://*.vercel.sh',
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:3000',
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
+    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+    ...(process.env.VERCEL_PROJECT_PRODUCTION_URL ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`] : []),
+  ],
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: 'lax',
+      secure: isProd,
+    },
+  },
 })
