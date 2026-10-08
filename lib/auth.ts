@@ -2,8 +2,28 @@ import { betterAuth } from 'better-auth'
 import { admin, username } from 'better-auth/plugins'
 import { pool } from '@/lib/db'
 
-const urls = [process.env.BETTER_AUTH_URL, process.env.V0_RUNTIME_URL, process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`, process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`].filter(Boolean) as string[]
-const useSecureCookies = urls[0]?.startsWith('https://') ?? false
+const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : undefined
+
+let primaryUrl = process.env.BETTER_AUTH_URL
+if (vercelUrl && (!primaryUrl || primaryUrl.includes('localhost'))) {
+  primaryUrl = vercelUrl
+}
+if (!primaryUrl) {
+  primaryUrl = vercelUrl ?? 'http://localhost:5000'
+}
+
+const urls = Array.from(new Set([
+  primaryUrl,
+  vercelUrl,
+  process.env.BETTER_AUTH_URL,
+  process.env.V0_RUNTIME_URL,
+].filter(Boolean) as string[]))
+
+const useSecureCookies = primaryUrl.startsWith('https://')
 
 export const auth = betterAuth({
   database: pool,
@@ -13,6 +33,7 @@ export const auth = betterAuth({
     admin({ defaultRole: 'user', adminRoles: ['admin'] }),
   ],
   secret: process.env.BETTER_AUTH_SECRET ?? process.env.SESSION_SECRET,
-  baseURL: urls[0], trustedOrigins: urls,
+  baseURL: primaryUrl,
+  trustedOrigins: urls,
   advanced: useSecureCookies ? { defaultCookieAttributes: { sameSite: 'none', secure: true } } : undefined,
 })
